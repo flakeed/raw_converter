@@ -1,35 +1,39 @@
 use bitvec::prelude::*;
 
+use quickcheck::{Arbitrary, Gen};
+use bitvec::mem::bits_of;
 use std::convert::From;
 use num_traits::AsPrimitive;
 use num_traits::Unsigned;
+use std::iter;
 
-fn split_bytes_into_7bit_chunks<T:Unsigned + From<u8> + AsPrimitive<u8> + BitStore>(bytes: &[u8]) -> (Vec<T>, usize){
-    let mut chunks:Vec<T> = Vec::new();
-    let bits_size = 8 * std::mem::size_of::<T>()-1;
-    let mut buffer = BitVec::<T>::with_capacity(bits_size);
-    let mut buffer_size = 0;
 
-    for byte in bytes{
-        let mut byte = *byte as u8;
-        for i in 0..8 {
-            if buffer_size == bits_size{
-                let chunk = buffer.into_vec().iter().fold(0u8, |acc, bit| (acc << 1) | bit.as_());
-                chunks.push(T::from(chunk));
-                buffer = BitVec::<T>::with_capacity(bits_size);
-                buffer_size = 0;
-            }
-            buffer.push(byte & 128 == 128);
-            byte <<= 1;
-            buffer_size += 1;
-        }
-    }
-    if buffer_size > 0 {
-        let chunk = buffer.into_vec().iter().fold(0u8, |acc, bit| (acc << 1) | bit.as_());
-        chunks.push(T::from(chunk));
-    }
-    (chunks, buffer_size)
-}
+// fn split_bytes_into_7bit_chunks<T:Unsigned + From<u8> + AsPrimitive<u8> + BitStore>(bytes: &[u8]) -> (Vec<T>, usize){
+//     let mut chunks:Vec<T> = Vec::new();
+//     let bits_size = 8 * std::mem::size_of::<T>()-1;
+//     let mut buffer = BitVec::<T>::with_capacity(bits_size);
+//     let mut buffer_size = 0;
+//
+//     for byte in bytes{
+//         let mut byte = *byte as u8;
+//         for i in 0..8 {
+//             if buffer_size == bits_size{
+//                 let chunk = buffer.into_vec().iter().fold(0u8, |acc, bit| (acc << 1) | bit.as_());
+//                 chunks.push(T::from(chunk));
+//                 buffer = BitVec::<T>::with_capacity(bits_size);
+//                 buffer_size = 0;
+//             }
+//             buffer.push(byte & 128 == 128);
+//             byte <<= 1;
+//             buffer_size += 1;
+//         }
+//     }
+//     if buffer_size > 0 {
+//         let chunk = buffer.into_vec().iter().fold(0u8, |acc, bit| (acc << 1) | bit.as_());
+//         chunks.push(T::from(chunk));
+//     }
+//     (chunks, buffer_size)
+// }
 
 //IN PROGRESS
 
@@ -61,31 +65,16 @@ fn split_bytes_into_7bit_chunks<T:Unsigned + From<u8> + AsPrimitive<u8> + BitSto
 //     bytes
 // }
 
+fn split_bytes_into_7bit_chunks<T:BitStore>(slice: &[u8]) -> Vec<T> {
+    let bits_size = bitvec::mem::bits_of::<T>()-1;
+    BitSlice::<_, Lsb0>::from_slice(slice)
+        .chunks(bits_size)
+        .flat_map(|chunk| chunk.iter().by_vals().chain(iter::once(false)))
+        .collect::<BitVec<_>>()
+        .into_vec()
+}
 
 fn main(){
-    let bytes = [0b1101_0101, 0b1010_1010];
-    let (chunks, remaining_bits) = split_bytes_into_7bit_chunks::<u8>(&bytes);
-    assert_eq!(chunks, [0b0101_0101, 0b0101_0101, 0b0000_0010]);
-    assert_eq!(remaining_bits, 2);
 
-    let bytes = [0b1000_0000];
-    let (chunks, remaining_bits) = split_bytes_into_7bit_chunks::<u8>(&bytes);
-    assert_eq!(chunks, [0b0000_0000, 0b0000_0001]);
-    assert_eq!(remaining_bits, 1);
-
-    let bytes = [0b0000_0000];
-    let (chunks, remaining_bits) = split_bytes_into_7bit_chunks::<u8>(&bytes);
-    assert_eq!(chunks, [0b0000_0000, 0b0000_0000]);
-    assert_eq!(remaining_bits, 0);
-
-    let bytes = [0b0111_1111, 0b1111_1111];
-    let (chunks, remaining_bits) = split_bytes_into_7bit_chunks::<u8>(&bytes);
-    assert_eq!(chunks, [0b0111_1111, 0b0111_1110, 0b0000_0011]);
-    assert_eq!(remaining_bits, 3);
-
-    let bytes = [0b0111_1111, 0b1111_1111, 0b0111_1110];
-    let (chunks, remaining_bits) = split_bytes_into_7bit_chunks::<u8>(&bytes);
-    assert_eq!(chunks, [0b0111_1111, 0b0111_1110, 0b0111_1011, 0b0000_0011]);
-    assert_eq!(remaining_bits, 3);
 }
 
