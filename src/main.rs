@@ -63,6 +63,29 @@ fn split_bytes_into_7bit_chunks<T:Unsigned + From<u8> + AsPrimitive<u8> + BitSto
 
 
 fn main(){
+    let bytes = [0b1101_0101, 0b1010_1010];
+    let (chunks, remaining_bits) = split_bytes_into_7bit_chunks::<u8>(&bytes);
+    assert_eq!(chunks, [0b0101_0101, 0b0101_0101, 0b0000_0010]);
+    assert_eq!(remaining_bits, 2);
 
+    let bytes = [0b1000_0000];
+    let (chunks, remaining_bits) = split_bytes_into_7bit_chunks::<u8>(&bytes);
+    assert_eq!(chunks, [0b0000_0000, 0b0000_0001]);
+    assert_eq!(remaining_bits, 1);
+
+    let bytes = [0b0000_0000];
+    let (chunks, remaining_bits) = split_bytes_into_7bit_chunks::<u8>(&bytes);
+    assert_eq!(chunks, [0b0000_0000, 0b0000_0000]);
+    assert_eq!(remaining_bits, 0);
+
+    let bytes = [0b0111_1111, 0b1111_1111];
+    let (chunks, remaining_bits) = split_bytes_into_7bit_chunks::<u8>(&bytes);
+    assert_eq!(chunks, [0b0111_1111, 0b0111_1110, 0b0000_0011]);
+    assert_eq!(remaining_bits, 3);
+
+    let bytes = [0b0111_1111, 0b1111_1111, 0b0111_1110];
+    let (chunks, remaining_bits) = split_bytes_into_7bit_chunks::<u8>(&bytes);
+    assert_eq!(chunks, [0b0111_1111, 0b0111_1110, 0b0111_1011, 0b0000_0011]);
+    assert_eq!(remaining_bits, 3);
 }
 
