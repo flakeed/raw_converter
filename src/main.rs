@@ -74,6 +74,38 @@ fn split_bytes_into_7bit_chunks<T:BitStore>(slice: &[u8]) -> Vec<T> {
         .into_vec()
 }
 
+#[test]
+fn test_split_bytes_into_7bit_chunks_u8() {
+    let input = vec![0b01100011, 0b10011010];
+    let expected_output = vec![0b011000111, 0b0011010];
+    let output = split_bytes_into_7bit_chunks::<u8>(&input);
+    assert_eq!(output, expected_output);
+}
+
+#[test]
+fn test_split_bytes_into_7bit_chunks_u16() {
+    let input = vec![0b01100011, 0b10011010];
+    let expected_output = vec![0b01100011100110];
+    let output = split_bytes_into_7bit_chunks::<u16>(&input);
+    assert_eq!(output, expected_output);
+}
+
+#[test]
+fn test_split_bytes_into_7bit_chunks_u32() {
+    let input = vec![0b01100011, 0b10011010];
+    let expected_output = vec![0b01100011100110];
+    let output = split_bytes_into_7bit_chunks::<u32>(&input);
+    assert_eq!(output, expected_output);
+}
+
+#[test]
+fn test_split_bytes_into_7bit_chunks_u64() {
+    let input = vec![0b01100011, 0b10011010];
+    let expected_output = vec![0b01100011100110];
+    let output = split_bytes_into_7bit_chunks::<u64>(&input);
+    assert_eq!(output, expected_output);
+}
+
 fn main(){
 
 }
