@@ -1,12 +1,8 @@
-use quickcheck::TestResult;
 use quickcheck::quickcheck;
-
 use bitvec::prelude::*;
 use std::{iter};
 use bitvec::mem;
 use bitvec::slice::BitSlice;
-
-
 
 fn split_bytes_into_7bit_chunks<T:BitStore>(slice: &[u8]) -> (Vec<T>,usize) {
     let chunked = BitSlice::<_, Lsb0>::from_slice(slice)
@@ -28,7 +24,7 @@ fn join_7bit_chunks_into_bytes<T: BitStore>(chunks: &[T], bytes: usize) -> Vec<u
 }
 
 quickcheck! {
-      fn prop_u8(slice: Vec<u8>) -> bool {
+    fn prop_u8(slice: Vec<u8>) -> bool {
         let (chunks, bytes_count) = split_bytes_into_7bit_chunks::<u8>(&slice);
         let reconstructed_slice = join_7bit_chunks_into_bytes(&chunks, bytes_count);
         slice == reconstructed_slice
@@ -49,6 +45,7 @@ quickcheck! {
         slice == reconstructed_slice
     }
   }
+
 fn main(){
 
 }
