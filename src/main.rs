@@ -1,109 +1,59 @@
 use bitvec::prelude::*;
+use std::{iter};
+use bitvec::mem;
+use bitvec::slice::BitSlice;
 
-use quickcheck::{Arbitrary, Gen};
-use bitvec::mem::bits_of;
-use std::convert::From;
-use num_traits::AsPrimitive;
-use num_traits::Unsigned;
-use std::iter;
-
-
-// fn split_bytes_into_7bit_chunks<T:Unsigned + From<u8> + AsPrimitive<u8> + BitStore>(bytes: &[u8]) -> (Vec<T>, usize){
-//     let mut chunks:Vec<T> = Vec::new();
-//     let bits_size = 8 * std::mem::size_of::<T>()-1;
-//     let mut buffer = BitVec::<T>::with_capacity(bits_size);
-//     let mut buffer_size = 0;
-//
-//     for byte in bytes{
-//         let mut byte = *byte as u8;
-//         for i in 0..8 {
-//             if buffer_size == bits_size{
-//                 let chunk = buffer.into_vec().iter().fold(0u8, |acc, bit| (acc << 1) | bit.as_());
-//                 chunks.push(T::from(chunk));
-//                 buffer = BitVec::<T>::with_capacity(bits_size);
-//                 buffer_size = 0;
-//             }
-//             buffer.push(byte & 128 == 128);
-//             byte <<= 1;
-//             buffer_size += 1;
-//         }
-//     }
-//     if buffer_size > 0 {
-//         let chunk = buffer.into_vec().iter().fold(0u8, |acc, bit| (acc << 1) | bit.as_());
-//         chunks.push(T::from(chunk));
-//     }
-//     (chunks, buffer_size)
-// }
-
-//IN PROGRESS
-
-// fn join_7bit_chunks_into_bytes<T:Unsigned + From<u8> + AsPrimitive<u8> + BitAnd<Output=T>>(chunks: &[T], buffer_bits_filled: usize) -> Vec<u8> {
-//     let bits_size = size_of::<T>() * 8 - 1;
-//     let chunk_size = 7;
-//     let mut bytes = Vec::new();
-//     let mut buffer: T = T::from(0);
-//     let mut buffer_bits_filled = buffer_bits_filled;
-//
-//     for chunk in chunks {
-//         buffer = buffer | (*chunk >> (bits_size - buffer_bits_filled));
-//         bytes.push(buffer.as_());
-//         buffer = *chunk & ((1 << (bits_size - buffer_bits_filled)) - 1);
-//         buffer_bits_filled += chunk_size;
-//
-//         while buffer_bits_filled >= 8 {
-//             bytes.push(buffer.as_());
-//             buffer = buffer >> 8;
-//             buffer_bits_filled -= 8;
-//         }
-//     }
-//
-//     if buffer_bits_filled > 0 {
-//         buffer = buffer << (8 - buffer_bits_filled);
-//         bytes.push(buffer.as_());
-//     }
-//
-//     bytes
-// }
-
-fn split_bytes_into_7bit_chunks<T:BitStore>(slice: &[u8]) -> Vec<T> {
-    let bits_size = bitvec::mem::bits_of::<T>()-1;
-    BitSlice::<_, Lsb0>::from_slice(slice)
+fn split_bytes_into_7bit_chunks<T:BitStore>(slice: &[u8]) -> (Vec<T>,usize) {
+    let bits_size = mem::bits_of::<T>()-1;
+    let chunked = BitSlice::<_, Lsb0>::from_slice(slice)
         .chunks(bits_size)
         .flat_map(|chunk| chunk.iter().by_vals().chain(iter::once(false)))
+        .collect::<BitVec<_>>()
+        .into_vec();
+    let bytes_count = chunked.len();
+    (chunked, bytes_count)
+}
+
+fn join_7bit_chunks_into_bytes<T: BitStore>(chunks: &[T], bytes: usize) -> Vec<u8> {
+    BitVec::<_, Lsb0>::from_slice(chunks)
+        .chunks(mem::bits_of::<T>())
+        .flat_map(|chunk| chunk.iter().take(chunk.len() - 1))
+        .take(bytes*8-8)
         .collect::<BitVec<_>>()
         .into_vec()
 }
 
 #[test]
 fn test_split_bytes_into_7bit_chunks_u8() {
-    let input = vec![0b01100011, 0b10011010];
-    let expected_output = vec![0b011000111, 0b0011010];
-    let output = split_bytes_into_7bit_chunks::<u8>(&input);
-    assert_eq!(output, expected_output);
-}
+    let bytes = vec![0b1101_0101,0b1010_1010];
+    let (chunks,remainder) = split_bytes_into_7bit_chunks::<u8>(&bytes);
+    let joined_bytes=join_7bit_chunks_into_bytes(&chunks,remainder);
+    assert_eq!(chunks, [0b0101_0101, 0b0101_0101, 0b0000_0010]);
+    assert_eq!(bytes,joined_bytes);
 
-#[test]
-fn test_split_bytes_into_7bit_chunks_u16() {
-    let input = vec![0b01100011, 0b10011010];
-    let expected_output = vec![0b01100011100110];
-    let output = split_bytes_into_7bit_chunks::<u16>(&input);
-    assert_eq!(output, expected_output);
-}
+    let bytes = vec![0b0111_1111, 0b1111_1111];
+    let (chunks,remainder) = split_bytes_into_7bit_chunks::<u8>(&bytes);
+    let joined_bytes=join_7bit_chunks_into_bytes(&chunks,remainder);
+    assert_eq!(chunks, [0b0111_1111, 0b0111_1110, 0b0000_0011]);
+    assert_eq!(bytes,joined_bytes);
 
-#[test]
-fn test_split_bytes_into_7bit_chunks_u32() {
-    let input = vec![0b01100011, 0b10011010];
-    let expected_output = vec![0b01100011100110];
-    let output = split_bytes_into_7bit_chunks::<u32>(&input);
-    assert_eq!(output, expected_output);
-}
+    let bytes = vec![0b0111_1111, 0b1111_1111, 0b0111_1110];
+    let (chunks,remainder) = split_bytes_into_7bit_chunks::<u8>(&bytes);
+    let joined_bytes=join_7bit_chunks_into_bytes(&chunks,remainder);
+    assert_eq!(chunks, [0b0111_1111, 0b0111_1110, 0b0111_1011, 0b0000_0011]);
+    assert_eq!(bytes,joined_bytes);
 
-#[test]
-fn test_split_bytes_into_7bit_chunks_u64() {
-    let input = vec![0b01100011, 0b10011010];
-    let expected_output = vec![0b01100011100110];
-    let output = split_bytes_into_7bit_chunks::<u64>(&input);
-    assert_eq!(output, expected_output);
+    let bytes = vec![0b0000_0000];
+    let (chunks,remainder) = split_bytes_into_7bit_chunks::<u8>(&bytes);
+    let joined_bytes=join_7bit_chunks_into_bytes(&chunks,remainder);
+    assert_eq!(chunks, [0b0000_0000, 0b0000_0000]);
+    assert_eq!(bytes,joined_bytes);
+
+    let bytes = vec![0b1000_0000];
+    let (chunks,remainder) = split_bytes_into_7bit_chunks::<u8>(&bytes);
+    let joined_bytes=join_7bit_chunks_into_bytes(&chunks,remainder);
+    assert_eq!(chunks, [0b0000_0000, 0b0000_0001]);
+    assert_eq!(bytes,joined_bytes);
 }
 
 fn main(){
