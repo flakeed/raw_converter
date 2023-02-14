@@ -1,3 +1,6 @@
+use quickcheck::TestResult;
+use quickcheck::quickcheck;
+
 use bitvec::prelude::*;
 use std::{iter};
 use bitvec::mem;
@@ -9,7 +12,7 @@ fn split_bytes_into_7bit_chunks<T:BitStore>(slice: &[u8]) -> (Vec<T>,usize) {
         .flat_map(|chunk| chunk.iter().by_vals().chain(iter::once(false)))
         .collect::<BitVec<_>>()
         .into_vec();
-    let bytes_count = chunked.len();
+    let bytes_count = slice.len();
     (chunked, bytes_count)
 }
 
@@ -17,7 +20,7 @@ fn join_7bit_chunks_into_bytes<T: BitStore>(chunks: &[T], bytes: usize) -> Vec<u
     BitVec::<_, Lsb0>::from_slice(chunks)
         .chunks(mem::bits_of::<T>())
         .flat_map(|chunk| chunk.iter().take(chunk.len() - 1))
-        .take(bytes*8-8)
+        .take(bytes*8)
         .collect::<BitVec<_>>()
         .into_vec()
 }
