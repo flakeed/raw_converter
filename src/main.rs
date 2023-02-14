@@ -4,9 +4,8 @@ use bitvec::mem;
 use bitvec::slice::BitSlice;
 
 fn split_bytes_into_7bit_chunks<T:BitStore>(slice: &[u8]) -> (Vec<T>,usize) {
-    let bits_size = mem::bits_of::<T>()-1;
     let chunked = BitSlice::<_, Lsb0>::from_slice(slice)
-        .chunks(bits_size)
+        .chunks(mem::bits_of::<T>()-1)
         .flat_map(|chunk| chunk.iter().by_vals().chain(iter::once(false)))
         .collect::<BitVec<_>>()
         .into_vec();
