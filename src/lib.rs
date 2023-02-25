@@ -94,13 +94,11 @@ macro_rules! impl_store {
             let mut place = 0 as Self;
             // SAFETY:
             unsafe {
-                let place = slice::from_raw_parts_mut(
-                    &mut place as *mut _ as *mut u8,
-                    mem::size_of::<Self>(),
-                );
-                place[..bytes.len()].copy_from_slice(bytes);
+                let ptr = &mut place as *mut _ as *mut u8;
+                slice::from_raw_parts_mut(ptr, mem::size_of::<Self>())[..bytes.len()]
+                    .copy_from_slice(bytes);
 
-                (mem::transmute_copy(&place), bytes.len())
+                (mem::transmute(place), bytes.len())
             }
         }
 
@@ -209,7 +207,8 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, (usize, usize, usize)) {
     let bits_len = len / bits_of::<T>() + 2;
     // ...
     let mut vec = Vec::<T>::with_capacity(len + bits_len + 1).tap_mut(|vec| {
-        // SAFETY:
+        // SAFETY: uninit place of vector is a valid byte slice
+        // `T: Store` must be friendly for initialization from bytes (or one of: u8..u64)
         unsafe {
             slice::from_raw_parts_mut(vec.as_mut_ptr() as *mut u8, head.len())
                 .copy_from_slice(head);
@@ -219,28 +218,17 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, (usize, usize, usize)) {
     let (tail, tail_up) = T::fill_up(tail);
     vec.push(tail);
 
-    let slice = unsafe { slice::from_raw_parts_mut(vec.as_mut_ptr(), vec.len()) };
+    // SAFETY: we leak about `Vec`as owner but can guarantee that vector will not be reallocated
+    // `slice` is an aligned as `T::Wide` part of vector place
+    // `head` + `slice` + `tail` == `vector place`
 
-    // SAFETY:
-    let (head, slice, tail) = unsafe {
-        let align = slice.as_ptr().align_offset(mem::align_of::<T::Wide>());
-
-        let (head, slice) = slice.split_at(align.min(slice.len()));
-        let (slice, tail) = slice.split_at(nearest_aligned(slice.len(), mem::size_of::<T::Wide>()));
-        (
-            head,
-            slice::from_raw_parts(
-                slice.as_ptr() as *const T::Wide,
-                slice.len() / mem::size_of::<T::Wide>(),
-            ),
-            tail,
-        )
-    };
+    let (head, slice, tail) =
+        unsafe { unsafe { slice::from_raw_parts_mut(vec.as_mut_ptr(), vec.len()) }.align_to() };
 
     let (head, head_up) = T::fill_bits_up(head);
     T::write_pack(&mut vec, head, head_up);
 
-    // SAFETY:
+    // SAFETY: we should believe that `Store::write_packed` will not overflow pre-alloc capacity
     unsafe {
         T::write_packed(&mut vec, slice);
     }
