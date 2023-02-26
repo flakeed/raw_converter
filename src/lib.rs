@@ -91,19 +91,16 @@ macro_rules! impl_store {
         const MASK: Self = $mask;
 
         fn fill_up(bytes: &[u8]) -> (Self, usize) {
-            let mut place = 0 as Self;
-            // SAFETY:
-            unsafe {
-                let ptr = &mut place as *mut _ as *mut u8;
-                slice::from_raw_parts_mut(ptr, mem::size_of::<Self>())[..bytes.len()]
-                    .copy_from_slice(bytes);
+            let mut place = [0u8; mem::size_of::<Self>()];
 
+            unsafe {
+                place[..bytes.len()].copy_from_slice(bytes);
                 (mem::transmute(place), bytes.len())
             }
         }
 
         fn fill_bits_up(slice: &[Self]) -> (Self::Wide, usize) {
-            assert!(slice.len() < Self::Wide::LANES * bits_of::<Self>());
+            assert!(slice.len() < bits_of::<Self::Wide>());
 
             let mut place = Self::Wide::splat(0 as $ty);
             let bits = BitSlice::<_, Lsb0>::from_slice_mut(&mut place[..]);
@@ -123,11 +120,11 @@ macro_rules! impl_store {
         }
 
         fn match_mask(self, mask: Self) -> bool {
-            self & mask != (0 as Self)
+            self & mask != 0
         }
 
         fn packed_mask(this: Self::Wide, other: Self::Wide) -> Self::Mask {
-            (this & other).simd_ne(Self::Wide::splat(0 as Self))
+            (this & other).simd_ne(Self::Wide::splat(0))
         }
     };
 }
@@ -218,12 +215,11 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, (usize, usize, usize)) {
     let (tail, tail_up) = T::fill_up(tail);
     vec.push(tail);
 
-    // SAFETY: we leak about `Vec`as owner but can guarantee that vector will not be reallocated
+    // SAFETY: we leak `Vec`as owner but can guarantee that vector will not be reallocated
     // `slice` is an aligned as `T::Wide` part of vector place
     // `head` + `slice` + `tail` == `vector place`
-
     let (head, slice, tail) =
-        unsafe { unsafe { slice::from_raw_parts_mut(vec.as_mut_ptr(), vec.len()) }.align_to() };
+        unsafe { slice::from_raw_parts_mut(vec.as_mut_ptr(), vec.len()).align_to() };
 
     let (head, head_up) = T::fill_bits_up(head);
     T::write_pack(&mut vec, head, head_up);
