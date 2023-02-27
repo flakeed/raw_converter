@@ -3,7 +3,6 @@
 
 use bitvec::{mem::bits_of, prelude::*};
 use std::{
-    fmt::{self, Formatter},
     mem,
     simd::{Mask, Simd, SimdPartialEq, ToBitMask},
     slice,
@@ -237,7 +236,6 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, Meta) {
 
     // SAFETY: we should believe that `Store::write_packed` will not overflow pre-alloc capacity
     unsafe {
-        println!("simd aligned: {}", slice.len());
         T::write_packed(&mut vec, slice);
     }
 
