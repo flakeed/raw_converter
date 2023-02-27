@@ -35,15 +35,6 @@ fn all(c: &mut Criterion) {
     with_data(c, "small", SMALL);
     with_data(c, "tiny", TINY);
     with_data(c, "thin", THIN);
-
-    #[repr(align(64))]
-    struct Align<const N: usize>([u8; N]);
-
-    let bytes = Align([243u8; 128]);
-    with_data(c, "unaligned", &bytes.0[1..]);
-
-    let bytes = Align([243u8; 1024 * 128]);
-    with_data(c, "unaligned-huge", &bytes.0[1..]);
 }
 
 criterion_group!(
