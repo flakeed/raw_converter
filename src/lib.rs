@@ -3,6 +3,7 @@
 
 use bitvec::{mem::bits_of, prelude::*};
 use std::{
+    fmt::{self, Formatter},
     mem,
     simd::{Mask, Simd, SimdPartialEq, ToBitMask},
     slice,
@@ -72,7 +73,7 @@ pub unsafe trait Store: BitStore + Sized {
 
     const MASK: Self;
 
-    fn fill_up(bytes: &[u8]) -> (Self, usize);
+    fn fill_up(bytes: &[u8]) -> Self;
     fn fill_bits_up(slice: &[Self]) -> (Self::Wide, usize);
 
     fn write_pack(dst: &mut Vec<Self>, pack: Self::Wide, up: usize);
@@ -90,12 +91,12 @@ macro_rules! impl_store {
 
         const MASK: Self = $mask;
 
-        fn fill_up(bytes: &[u8]) -> (Self, usize) {
+        fn fill_up(bytes: &[u8]) -> Self {
             let mut place = [0u8; mem::size_of::<Self>()];
 
             unsafe {
                 place[..bytes.len()].copy_from_slice(bytes);
-                (mem::transmute(place), bytes.len())
+                mem::transmute(place)
             }
         }
 
@@ -196,8 +197,17 @@ fn nearest_aligned(n: usize, align: usize) -> usize {
     n / align * align
 }
 
-pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, (usize, usize, usize)) {
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct Meta {
+    /// Offset to the align of `T::Wide`
+    pub aligned_up: usize,
+    /// Original len in bytes
+    pub len: usize,
+}
+
+pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, Meta) {
     let (head, tail) = slice.split_at(nearest_aligned(slice.len(), mem::size_of::<T>()));
+    let bytes_len = slice.len();
 
     let len = head.len() / mem::size_of::<T>();
     // do not use `again_aligned` because `BitVec` may be reallocated
@@ -212,8 +222,9 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, (usize, usize, usize)) {
             vec.set_len(len);
         }
     });
-    let (tail, tail_up) = T::fill_up(tail);
-    vec.push(tail);
+    if !tail.is_empty() {
+        vec.push(T::fill_up(tail));
+    }
 
     // SAFETY: we leak `Vec`as owner but can guarantee that vector will not be reallocated
     // `slice` is an aligned as `T::Wide` part of vector place
@@ -226,6 +237,7 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, (usize, usize, usize)) {
 
     // SAFETY: we should believe that `Store::write_packed` will not overflow pre-alloc capacity
     unsafe {
+        println!("simd aligned: {}", slice.len());
         T::write_packed(&mut vec, slice);
     }
 
@@ -237,7 +249,10 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, (usize, usize, usize)) {
                 }
             })
             .into_vec(),
-        (tail_up, head_up, len),
+        Meta {
+            aligned_up: head_up,
+            len: bytes_len,
+        },
     )
 }
 
