@@ -136,9 +136,8 @@ unsafe impl Store for u8 {
 
     unsafe fn write_packed(dst: &mut Vec<Self>, src: &[Self::Wide]) {
         for chunk in src {
-            let bytes = Self::packed_mask(*chunk, Self::Wide::splat(Self::MASK))
-                .to_bitmask()
-                .to_ne_bytes();
+            let bytes =
+                Self::packed_mask(*chunk, Self::Wide::splat(Self::MASK)).to_bitmask().to_ne_bytes();
             dst.extend_from_slice(&bytes);
         }
     }
@@ -199,12 +198,27 @@ fn nearest_aligned(n: usize, align: usize) -> usize {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Meta {
     /// Offset to the align of `T::Wide`
-    pub aligned_up: usize,
+    pub(crate) aligned_up: usize,
     /// Original len in bytes
-    pub len: usize,
+    pub(crate) len: usize,
+}
+
+impl Meta {
+    fn aligned_up(&self) -> usize {
+        self.aligned_up
+    }
+
+    fn len(&self) -> usize {
+        self.aligned_up
+    }
 }
 
 pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, Meta) {
+    // FIXME(temp-fix): few people will need to handle empty [u8]
+    if slice.is_empty() {
+        return (Vec::new(), Meta { aligned_up: 0, len: 0 });
+    }
+
     let (head, tail) = slice.split_at(nearest_aligned(slice.len(), mem::size_of::<T>()));
     let bytes_len = slice.len();
 
@@ -247,11 +261,39 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, Meta) {
                 }
             })
             .into_vec(),
-        Meta {
-            aligned_up: head_up,
-            len: bytes_len,
-        },
+        Meta { aligned_up: head_up, len: bytes_len },
     )
+}
+
+pub fn join_into<T: Store>(slice: &[T], Meta { len, .. }: Meta) -> Vec<u8> {
+    unsafe { Vec::from(slice::from_raw_parts(slice.as_ptr() as *const u8, len)) }
+}
+
+#[test]
+fn prop() {
+    fn inner<T: Store>(bytes: &[u8]) {
+        let (vec, meta) = split_into::<T>(bytes);
+        let new = join_into(&vec, meta);
+
+        assert_eq!(new, bytes);
+    }
+
+    use proptest::{
+        prelude::{any, prop::collection},
+        test_runner::{Config, TestRunner},
+    };
+
+    TestRunner::new(Config { source_file: Some("src/lib.rs"), ..Config::default() })
+        .run(&collection::vec(any::<u8>(), 0..512), |bytes| {
+            assert_eq!(bytes, old::join_chunks(&old::split_chunks(&bytes)));
+
+            inner::<u8>(&bytes);
+            inner::<u16>(&bytes);
+            inner::<u32>(&bytes);
+            inner::<u64>(&bytes);
+            Ok(())
+        })
+        .expect("tests are failed");
 }
 
 #[test]
