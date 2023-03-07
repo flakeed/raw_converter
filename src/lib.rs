@@ -10,13 +10,10 @@ use std::{
 use tap::Tap;
 
 pub mod old {
-    pub fn split_chunks(bytes: &[u8]) -> Vec<u8> {
+    pub fn split_chunks(bytes: &[u8]) -> (Vec<u8>, usize) {
         let mut chunks = Vec::new();
         let mut buffer: u16 = 0;
         let mut buffer_size = 0;
-        let num_bytes = bytes.len();
-
-        chunks.push(num_bytes as u8);
 
         for byte in bytes {
             buffer |= (*byte as u16) << buffer_size;
@@ -34,16 +31,16 @@ pub mod old {
             chunks.push((buffer & 0b0111_1111) as u8);
         }
 
-        chunks
+        (chunks, bytes.len())
     }
 
-    pub fn join_chunks(chunks: &[u8]) -> Vec<u8> {
+    pub fn join_chunks(chunks: &[u8], len: usize) -> Vec<u8> {
         let mut bytes = Vec::new();
         let mut buffer: u16 = 0;
         let mut buffer_size = 0;
-        let num_bytes = chunks[0] as usize;
+        let num_bytes = len;
 
-        for chunk in &chunks[1..] {
+        for chunk in chunks {
             buffer |= (*chunk as u16) << buffer_size;
             buffer_size += 7;
 
@@ -284,8 +281,9 @@ fn prop() {
     };
 
     TestRunner::new(Config { source_file: Some("src/lib.rs"), ..Config::default() })
-        .run(&collection::vec(any::<u8>(), 0..512), |bytes| {
-            assert_eq!(bytes, old::join_chunks(&old::split_chunks(&bytes)));
+        .run(&collection::vec(1u8.., 0..512), |bytes| {
+            let (chunks, len) = old::split_chunks(&bytes);
+            assert_eq!(bytes, old::join_chunks(&chunks, len));
 
             inner::<u8>(&bytes);
             inner::<u16>(&bytes);

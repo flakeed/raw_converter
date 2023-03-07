@@ -17,10 +17,19 @@ fn define<T: Store>(group: &mut BenchmarkGroup<WallTime>, name: &str, corpus: &[
 
 fn with_data(c: &mut Criterion, name: &str, corpus: &[u8]) {
     let mut group = c.benchmark_group(name);
-    group.throughput(Throughput::BytesDecimal(corpus.len() as u64));
+    group
+        // -- for fast dev rebench --
+        // .sample_size(10)
+        // .warm_up_time(std::time::Duration::from_millis(500))
+        // .measurement_time(std::time::Duration::from_secs(2))
+        // --                      --
+        .throughput(Throughput::BytesDecimal(corpus.len() as u64));
 
     group.bench_function("old", |b| {
-        b.iter(|| assert_eq!(old::join_chunks(&old::split_chunks(corpus)), corpus));
+        b.iter(|| {
+            let (chunks, len) = old::split_chunks(&corpus);
+            assert_eq!(corpus, old::join_chunks(&chunks, len));
+        });
     });
 
     define::<u8>(&mut group, "new(u8)", corpus);
