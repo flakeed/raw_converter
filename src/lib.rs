@@ -281,7 +281,7 @@ fn prop() {
     };
 
     TestRunner::new(Config { source_file: Some("src/lib.rs"), ..Config::default() })
-        .run(&collection::vec(1u8.., 0..512), |bytes| {
+        .run(&collection::vec(any::<u8>(), 0..512), |bytes| {
             let (chunks, len) = old::split_chunks(&bytes);
             assert_eq!(bytes, old::join_chunks(&chunks, len));
 
