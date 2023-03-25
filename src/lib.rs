@@ -192,6 +192,7 @@ fn nearest_aligned(n: usize, align: usize) -> usize {
     n / align * align
 }
 
+/// Metadata for reverse join into bytes
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Meta {
     /// Offset to the align of `T::Wide`
@@ -232,6 +233,8 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, Meta) {
             vec.set_len(len);
         }
     });
+    let anchor_cap = vec.capacity();
+
     if !tail.is_empty() {
         vec.push(T::fill_up(tail));
     }
@@ -246,9 +249,11 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, Meta) {
     T::write_pack(&mut vec, head, head_up);
 
     // SAFETY: we should believe that `Store::write_packed` will not overflow pre-alloc capacity
+    // we check it in the next `debug_assert` with `anchor_cap`
     unsafe {
         T::write_packed(&mut vec, slice);
     }
+    debug_assert_eq!(anchor_cap, vec.capacity());
 
     (
         BitVec::<_, Lsb0>::from_vec(vec)
@@ -295,6 +300,7 @@ fn prop() {
 }
 
 #[test]
+#[cfg_attr(not(miri), ignore)]
 fn miri() {
     let bytes = [0u8; 100];
     let _ = split_into::<u8>(&bytes);
