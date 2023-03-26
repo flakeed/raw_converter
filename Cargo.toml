@@ -4,15 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-num-traits = "0.2.15"
-rand = "0.8.5"
-#num = "0.1.29"
-bitvec = "1.0.1"
-#radium = "0.6.2"
-#proptest = "1.1.0"
-criterion = "0.4.0"
 tap = "1.0.1"
+bitvec = "1.0.1"
+
+[dev-dependencies]
 proptest = "1.1.0"
+criterion = "0.4.0"
 
 [[bench]]
 name = "bench"

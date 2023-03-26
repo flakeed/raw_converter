@@ -202,11 +202,11 @@ pub struct Meta {
 }
 
 impl Meta {
-    fn aligned_up(&self) -> usize {
+    pub fn aligned_up(&self) -> usize {
         self.aligned_up
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.aligned_up
     }
 }
@@ -253,7 +253,6 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, Meta) {
     unsafe {
         T::write_packed(&mut vec, slice);
     }
-    debug_assert_eq!(anchor_cap, vec.capacity());
 
     (
         BitVec::<_, Lsb0>::from_vec(vec)
@@ -262,7 +261,9 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, Meta) {
                     vec.push(false)
                 }
             })
-            .into_vec(),
+            .into_vec()
+            // TODO(possible): maybe kept `.tap` instead of `.tap_dbg` or `debug_assert`
+            .tap(|vec| assert_eq!(anchor_cap, vec.capacity())),
         Meta { aligned_up: head_up, len: bytes_len },
     )
 }
