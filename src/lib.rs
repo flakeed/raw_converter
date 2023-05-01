@@ -208,8 +208,10 @@ impl Meta {
     }
 
     /// Original len in bytes
+    // `Meta` isn't collection -> fixme: maybe rename something like `size`
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
-        self.align_up
+        self.len
     }
 }
 
