@@ -1,7 +1,9 @@
 #![feature(portable_simd)]
 #![feature(array_chunks)]
+#![feature(string_deref_patterns)]
 
 use bitvec::{mem::bits_of, prelude::*};
+use std::alloc::Layout;
 use std::{
     mem,
     simd::{Mask, Simd, SimdPartialEq, ToBitMask},
@@ -63,7 +65,7 @@ pub mod old {
     }
 }
 
-pub unsafe trait Store: BitStore + Sized {
+pub unsafe trait Store: BitStore + Copy {
     type Wide;
     type Mask;
 
@@ -195,26 +197,26 @@ fn nearest_aligned(n: usize, align: usize) -> usize {
 /// Metadata for reverse join into bytes
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Meta {
-    /// Offset to the align of `T::Wide`
-    pub(crate) aligned_up: usize,
-    /// Original len in bytes
-    pub(crate) len: usize,
+    align_up: usize,
+    len: usize,
 }
 
 impl Meta {
-    pub fn aligned_up(&self) -> usize {
-        self.aligned_up
+    /// Offset to the align of `T::Wide`
+    pub fn align_up(&self) -> usize {
+        self.align_up
     }
 
+    /// Original len in bytes
     pub fn len(&self) -> usize {
-        self.aligned_up
+        self.align_up
     }
 }
 
 pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, Meta) {
     // FIXME(temp-fix): few people will need to handle empty [u8]
     if slice.is_empty() {
-        return (Vec::new(), Meta { aligned_up: 0, len: 0 });
+        return (Vec::new(), Meta { align_up: 0, len: 0 });
     }
 
     let (head, tail) = slice.split_at(nearest_aligned(slice.len(), mem::size_of::<T>()));
@@ -257,14 +259,14 @@ pub fn split_into<T: Store>(slice: &[u8]) -> (Vec<T>, Meta) {
     (
         BitVec::<_, Lsb0>::from_vec(vec)
             .tap_mut(|vec| {
-                for _ in tail {
-                    vec.push(false)
+                for it in tail {
+                    vec.push(it.match_mask(T::MASK))
                 }
             })
             .into_vec()
             // TODO(possible): maybe kept `.tap` instead of `.tap_dbg` or `debug_assert`
             .tap(|vec| assert_eq!(anchor_cap, vec.capacity())),
-        Meta { aligned_up: head_up, len: bytes_len },
+        Meta { align_up: head_up, len: bytes_len },
     )
 }
 
