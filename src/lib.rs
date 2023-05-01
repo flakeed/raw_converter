@@ -1,15 +1,15 @@
 #![feature(portable_simd)]
 #![feature(array_chunks)]
-#![feature(string_deref_patterns)]
 
-use bitvec::{mem::bits_of, prelude::*};
-use std::alloc::Layout;
-use std::{
-    mem,
-    simd::{Mask, Simd, SimdPartialEq, ToBitMask},
-    slice,
+use {
+    bitvec::{mem::bits_of, prelude::*},
+    std::{
+        mem,
+        simd::{Mask, Simd, SimdPartialEq, ToBitMask},
+        slice,
+    },
+    tap::Tap,
 };
-use tap::Tap;
 
 pub mod old {
     pub fn split_chunks(bytes: &[u8]) -> (Vec<u8>, usize) {
