@@ -1,0 +1,4 @@
+version = "Two"
+
+imports_granularity = "One"
+use_small_heuristics = "Max"

@@ -3,17 +3,14 @@ name = "raw_converter"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-quickcheck='0.9.2'
-num-traits = "0.2.15"
-rand = "0.8.5"
-#num = "0.1.29"
+tap = "1.0.1"
 bitvec = "1.0.1"
-#radium = "0.6.2"
-#proptest = "1.1.0"
+
+[dev-dependencies]
+proptest = "1.1.0"
 criterion = "0.4.0"
-my_crate = { path = "my_crate" }
+
 [[bench]]
-name = "test-algo"
+name = "bench"
 harness = false
